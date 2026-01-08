@@ -9,10 +9,23 @@ export default async function DebugEnvPage() {
 
     let signResult = 'Not attempted';
     let signError = null;
+    let listBucketsResult = 'Not attempted';
+    let listBucketsError = null;
 
     if (service && url) {
         try {
             const supabaseAdmin = createClient(url, service);
+
+            // Test 1: List Buckets
+            const { data: buckets, error: bucketError } = await supabaseAdmin.storage.listBuckets();
+            if (bucketError) {
+                listBucketsResult = 'Failed: ' + bucketError.message;
+                listBucketsError = bucketError;
+            } else {
+                listBucketsResult = `Success (${buckets?.length} buckets found)`;
+            }
+
+            // Test 2: Sign URL
             const { data, error } = await supabaseAdmin
                 .storage
                 .from('uploads')
@@ -27,6 +40,7 @@ export default async function DebugEnvPage() {
         } catch (e: any) {
             signResult = 'Exception';
             signError = e.message;
+            listBucketsResult = 'Exception: ' + e.message;
         }
     }
 
@@ -43,17 +57,23 @@ export default async function DebugEnvPage() {
                 Defined: {service ? 'YES' : 'NO'}<br />
                 Length: {service?.length}<br />
                 Start: {service?.substring(0, 10)}...<br />
-                End: ...{service?.substring(service.length - 10)}
+                End: ...{service?.substring(service && service.length > 10 ? service.length - 10 : 0)}
             </div>
 
             <div className="mb-4 p-4 bg-gray-100 rounded">
-                <strong>Test Signing (Server Side):</strong><br />
+                <strong>Test 1: List Buckets (Connectivity):</strong><br />
+                Result: <span className={listBucketsResult.startsWith('Success') ? 'text-green-600' : 'text-red-600'}>{listBucketsResult}</span><br />
+            </div>
+
+            <div className="mb-4 p-4 bg-gray-100 rounded">
+                <strong>Test 2: Signing (Server Side):</strong><br />
                 Result: <span className={signResult === 'Success' ? 'text-green-600' : 'text-red-600'}>{signResult}</span><br />
                 {signError && <div className="text-red-600">Error: {signError}</div>}
             </div>
 
             <p className="text-gray-500 mt-8">
-                If "Result" is "Failed" with "signature verification failed", the Service Role Key is invalid for this project.
+                If 'List Buckets' works but 'Signing' fails, the Service Role Key is valid but might lack permission or the bucket is private/restricted differently.
+                If both fail, the Key or URL is likely invalid or network is blocked.
             </p>
         </div>
     );
