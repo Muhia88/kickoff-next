@@ -15,18 +15,12 @@ if (!supabaseUrl || !supabaseServiceKey) {
 const supabaseAdmin = createClient(supabaseUrl!, supabaseServiceKey!);
 
 export async function getSignedImageURL(path: string | null | undefined) {
-    if (!path) return null;
+    if (!path) return { signedUrl: null, error: "No path provided" };
 
     try {
         // 1. Clean the path.
-        // Ensure no leading slashes
         let cleanPath = path.replace(/^\/+/, '');
 
-        // Remove 'uploads/' prefix if present, as createSignedUrl expects path relative to bucket root?
-        // Wait, in admin_backend logic, it splits bucket 'uploads' from path.
-        // If path is 'uploads/products/xyz.jpg', and bucket is 'uploads', then object path is 'products/xyz.jpg'.
-        // The legacy logic: bucket, object_name = object_path.split('/', 1) -> implies path starts with bucket.
-        // Let's support both. If it starts with 'uploads/', strip it.
         // 2. Determine Bucket and Path
         let bucket = 'uploads'; // Default
 
@@ -34,24 +28,24 @@ export async function getSignedImageURL(path: string | null | undefined) {
             cleanPath = cleanPath.substring(8);
         } else if (cleanPath.startsWith('imageBank/')) {
             bucket = 'imageBank';
-            cleanPath = cleanPath.substring(10); // 'imageBank/'.length
+            cleanPath = cleanPath.substring(10);
         }
 
         // 3. Create Signed URL
         const { data, error } = await supabaseAdmin
             .storage
             .from(bucket)
-            .createSignedUrl(cleanPath, 60 * 60); // 1 hour expiry
+            .createSignedUrl(cleanPath, 60 * 60);
 
         if (error) {
             console.error("Error signing URL:", error);
-            return null;
+            return { signedUrl: null, error: error.message };
         }
 
-        return data.signedUrl;
-    } catch (e) {
+        return { signedUrl: data.signedUrl };
+    } catch (e: any) {
         console.error("Exception signing URL:", e);
-        return null;
+        return { signedUrl: null, error: e.message || "Unknown exception" };
     }
 }
 

@@ -63,12 +63,12 @@ export default function ProductImage({ path, alt, className }: ProductImageProps
                 }
 
                 // Call server action to sign URL
-                const signedUrl = await getSignedImageURL(resolvePath);
+                const response = await getSignedImageURL(resolvePath);
 
-                if (signedUrl) {
-                    setImgSrc(signedUrl);
+                if (response && response.signedUrl) {
+                    setImgSrc(response.signedUrl);
                 } else {
-                    console.error("Failed to sign URL for path:", resolvePath);
+                    console.error("Failed to sign URL for path:", resolvePath, "Error:", response?.error);
                     setHasError(true);
                     setIsLoading(false);
                 }
