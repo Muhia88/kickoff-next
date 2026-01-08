@@ -54,8 +54,12 @@ const ProfilePage = () => {
             setAvatarUrl(path);
             return;
         }
-        const signed = await getSignedImageURL(path);
-        if (signed) setAvatarUrl(signed);
+        const response = await getSignedImageURL(path);
+        if (response && response.signedUrl) {
+            setAvatarUrl(response.signedUrl);
+        } else {
+            console.error("Failed to load avatar:", path, response?.error);
+        }
     };
 
     const handleSave = async (e: React.FormEvent) => {
