@@ -12,6 +12,10 @@ if (!supabaseUrl || !supabaseServiceKey) {
 }
 
 // Initialize Supabase with Service Role Key for Admin privileges (signing URLs)
+console.log("Initializing Supabase Admin in actions.ts");
+console.log("Supabase URL:", supabaseUrl);
+console.log("Service Key Prefix:", supabaseServiceKey?.substring(0, 10));
+
 const supabaseAdmin = createClient(supabaseUrl!, supabaseServiceKey!);
 
 export async function getSignedImageURL(path: string | null | undefined) {
