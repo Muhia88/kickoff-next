@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
                     ticket_uid: uid,
                     purchased_at: new Date().toISOString(),
                     qr_object_path: qrPath,
-                    status: 'valid'
+                    is_used: false
                 };
 
                 itemsToInsert.push(ticket);
