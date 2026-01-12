@@ -145,38 +145,64 @@ Deno.serve(async (req) => {
 
             if (orderError || !order) throw new Error("Order not found");
 
+            // Skip if qr_image_url already set with friendly URL format
+            if (order.qr_image_url && order.qr_image_url.includes('/api/images/order/')) {
+                return new Response(JSON.stringify({ message: 'Order QR already exists', qr_image_url: order.qr_image_url }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+            }
+
             try {
                 const qrUid = crypto.randomUUID();
-                const qrContent = JSON.stringify({ order_id: order_id, uid: qrUid });
-                // Use SVG
-                const svgString = await QRCode.toString(qrContent, { type: 'svg' });
+                const verifyUrl = `https://theearlykickoff.co.ke/verify-order/${order_id}`;
 
-                const fileName = `orders/${order_id}/${qrUid}.svg`;
+                // Generate PNG Data URL
+                const dataUrl = await QRCode.toDataURL(verifyUrl, {
+                    type: 'image/png',
+                    width: 300,
+                    margin: 2
+                });
+
+                // Convert Base64 to Uint8Array
+                const base64Data = dataUrl.split(',')[1];
+                const binaryString = atob(base64Data);
+                const len = binaryString.length;
+                const bytes = new Uint8Array(len);
+                for (let k = 0; k < len; k++) bytes[k] = binaryString.charCodeAt(k);
+
+                const fileName = `orders/${order_id}/${qrUid}.png`;
                 const { error: uploadError } = await supabaseAdmin.storage
                     .from('imageBank')
-                    .upload(fileName, svgString, { contentType: 'image/svg+xml', upsert: true });
+                    .upload(fileName, bytes, { contentType: 'image/png', upsert: true });
 
                 if (!uploadError) {
-                    // Update Order Metadata
-                    const { data: currentOrder } = await supabaseAdmin.from('orders').select('metadata').eq('id', order_id).single();
-                    // Merge Metadata
-                    const newMeta = {
-                        ...(currentOrder?.metadata || {}),
-                        qr_object_path: `imageBank/${fileName}`
-                    };
+                    // Friendly URL
+                    const friendlyUrl = `https://theearlykickoff.co.ke/api/images/order/${order_id}`;
+
+                    // Parse metadata safely
+                    let currentMeta = order.metadata || {};
+                    if (typeof currentMeta === 'string') {
+                        try {
+                            currentMeta = JSON.parse(currentMeta);
+                        } catch (e) {
+                            console.error("Failed to parse metadata", e);
+                            currentMeta = {};
+                        }
+                    }
 
                     // Update Order
                     const { error: updateError } = await supabaseAdmin.from('orders')
                         .update({
-                            metadata: newMeta,
-                            qr_image_url: `imageBank/${fileName}`,
-                            qr_code: `imageBank/${fileName}`
+                            metadata: {
+                                ...currentMeta,
+                                qr_object_path: `imageBank/${fileName}`
+                            },
+                            qr_image_url: friendlyUrl,
+                            qr_code: friendlyUrl
                         })
                         .eq('id', order_id);
 
                     if (updateError) throw updateError;
 
-                    return new Response(JSON.stringify({ message: 'Order QR created' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+                    return new Response(JSON.stringify({ message: 'Order QR created', qr_image_url: friendlyUrl }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
                 } else {
                     throw uploadError;
                 }
