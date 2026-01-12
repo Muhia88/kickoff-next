@@ -36,8 +36,6 @@ Deno.serve(async (req) => {
                     dbUserId = uVal.id;
                 } else {
                     console.error("User lookup failed for tickets:", user_id, uErr);
-                    // If we can't find the user, we can't link the ticket properly in DB (if FK)
-                    // Fallback or Throw? Throwing is safer.
                     throw new Error("User record not found for Ticket generation");
                 }
             }
@@ -60,18 +58,14 @@ Deno.serve(async (req) => {
 
                 try {
                     const verifyUrl = `https://theearlykickoff.co.ke/api/tickets/verify/${uid}`;
-                    const dataUrl = await QRCode.toDataURL(verifyUrl);
-                    const base64Data = dataUrl.split(',')[1];
-                    const binaryString = atob(base64Data);
-                    const len = binaryString.length;
-                    const bytes = new Uint8Array(len);
-                    for (let k = 0; k < len; k++) bytes[k] = binaryString.charCodeAt(k);
+                    // Use SVG to avoid Canvas dependencies
+                    const svgString = await QRCode.toString(verifyUrl, { type: 'svg' });
 
-                    const fileName = `tickets/${event_id}/${uid}.png`;
+                    const fileName = `tickets/${event_id}/${uid}.svg`;
 
                     const { error: uploadError } = await supabaseAdmin.storage
                         .from('imageBank')
-                        .upload(fileName, bytes, { contentType: 'image/png', upsert: true });
+                        .upload(fileName, svgString, { contentType: 'image/svg+xml', upsert: true });
 
                     if (!uploadError) {
                         qrPath = `imageBank/${fileName}`;
@@ -81,6 +75,7 @@ Deno.serve(async (req) => {
                         if (signedData) qrUrl = signedData.signedUrl;
                     } else {
                         console.error("QR Upload Error", uploadError);
+                        // We continue even if QR upload fails, ticket is created without QR (better than no ticket)
                     }
 
                 } catch (e) {
@@ -96,13 +91,9 @@ Deno.serve(async (req) => {
                     qr_object_path: qrPath,
                     status: 'valid'
                 };
-                // Note: tickets table might not have qr_code_url column? Previous code inserted qr_code: qrDataURL in variable 'tickets' but 'itemsToInsert' had `qrPath`?
-                // Step 1171 code had 2 blocks (one with itemsToInsert, other with tickets.push).
-                // I will match the structure that uses 'itemsToInsert' which seemed more complete in Step 1171 listing.
-                // It used: user_id, event_id, price, ticket_uid, purchased_at, qr_object_path.
 
                 itemsToInsert.push(ticket);
-                tickets.push({ ...ticket, qr_code_url: qrUrl }); // return URL to frontend
+                tickets.push({ ...ticket, qr_code_url: qrUrl });
             }
 
             if (itemsToInsert.length > 0) {
@@ -140,17 +131,13 @@ Deno.serve(async (req) => {
             try {
                 const qrUid = crypto.randomUUID();
                 const qrContent = JSON.stringify({ order_id: order_id, uid: qrUid });
-                const dataUrl = await QRCode.toDataURL(qrContent);
-                const base64Data = dataUrl.split(',')[1];
-                const binaryString = atob(base64Data);
-                const len = binaryString.length;
-                const bytes = new Uint8Array(len);
-                for (let k = 0; k < len; k++) bytes[k] = binaryString.charCodeAt(k);
+                // Use SVG
+                const svgString = await QRCode.toString(qrContent, { type: 'svg' });
 
-                const fileName = `orders/${order_id}/${qrUid}.png`;
+                const fileName = `orders/${order_id}/${qrUid}.svg`;
                 const { error: uploadError } = await supabaseAdmin.storage
                     .from('imageBank')
-                    .upload(fileName, bytes, { contentType: 'image/png', upsert: true });
+                    .upload(fileName, svgString, { contentType: 'image/svg+xml', upsert: true });
 
                 if (!uploadError) {
                     // Update Order Metadata
@@ -165,12 +152,7 @@ Deno.serve(async (req) => {
                     const { error: updateError } = await supabaseAdmin.from('orders')
                         .update({
                             metadata: newMeta,
-                            qr_code: `imageBank/${fileName}` // Some legacy using 'qr_code' column? Step 1171 code used 'qr_code' for link?
-                            // Step 1171 had 'qr_code: qrCodeUrl' in one block and 'qr_image_url' in another.
-                            // I will update BOTH 'qr_code' (likely text/path) and 'qr_image_url' if column exists.
-                            // Better: Set 'qr_code' to the signed URL or Path?
-                            // Standard: 'qr_code' column in orders seems to store URL or Path.
-                            // I'll set 'qr_code' to Path (consistent with metadata).
+                            qr_code: `imageBank/${fileName}`
                         })
                         .eq('id', order_id);
 

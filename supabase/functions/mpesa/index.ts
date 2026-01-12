@@ -125,21 +125,42 @@ Deno.serve(async (req) => {
             if (order_id) {
                 await supabaseAdmin.from('orders').update({ status: 'paid' }).eq('id', order_id);
                 try {
-                    await fetch(ticketsUrl, {
+                    const res = await fetch(ticketsUrl, {
                         method: 'POST',
                         headers: { 'Authorization': `Bearer ${anonKey}`, 'Content-Type': 'application/json' },
                         body: JSON.stringify({ action: 'create_order_qr', order_id: order_id })
                     });
+                    if (!res.ok) {
+                        const errTxt = await res.text();
+                        console.error("Order QR Gen Failed:", errTxt);
+                        // Log to payment
+                        await supabaseAdmin.from('payments').update({
+                            raw_payload: { ...(typeof payment.raw_payload === 'object' ? payment.raw_payload : {}), ticket_error: errTxt }
+                        }).eq('id', payment.id);
+                    }
                 } catch (e) { console.error("Order QR Gen Error", e); }
 
             } else if (event_id) {
                 try {
-                    await fetch(ticketsUrl, {
+                    const res = await fetch(ticketsUrl, {
                         method: 'POST',
                         headers: { 'Authorization': `Bearer ${anonKey}`, 'Content-Type': 'application/json' },
                         body: JSON.stringify({ action: 'create_tickets', event_id, user_id: user.id, quantity: quantity || 1 })
                     });
-                } catch (e) { console.error("Ticket Gen Error", e); }
+                    if (!res.ok) {
+                        const errTxt = await res.text();
+                        console.error("Ticket Gen Failed:", errTxt);
+                        // Log to payment
+                        await supabaseAdmin.from('payments').update({
+                            raw_payload: { ...(typeof payment.raw_payload === 'object' ? payment.raw_payload : {}), ticket_error: errTxt }
+                        }).eq('id', payment.id);
+                    }
+                } catch (e) {
+                    console.error("Ticket Gen Error", e);
+                    await supabaseAdmin.from('payments').update({
+                        raw_payload: { ...(typeof payment.raw_payload === 'object' ? payment.raw_payload : {}), ticket_call_error: String(e) }
+                    }).eq('id', payment.id);
+                }
 
             } else if (plan === 'vip') {
                 // Activate VIP
