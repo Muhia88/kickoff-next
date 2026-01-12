@@ -125,27 +125,79 @@ Deno.serve(async (req) => {
 
             // Logic based on Type
             if (order_id) {
-                await supabaseAdmin.from('orders').update({ status: 'paid' }).eq('id', order_id);
-                try {
-                    const res = await fetch(ticketsUrl, {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${anonKey}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: 'create_order_qr', order_id: order_id })
-                    });
-                    if (!res.ok) {
-                        const errTxt = await res.text();
-                        ticketError = "Order QR Failed: " + errTxt;
-                        console.error("Order QR Gen Failed:", errTxt);
-                        // Log to payment
-                        await supabaseAdmin.from('payments').update({
-                            raw_payload: { ...(typeof payment.raw_payload === 'object' ? payment.raw_payload : {}), ticket_error: errTxt }
-                        }).eq('id', payment.id);
+                // Fetch current order metadata
+                const { data: currentOrder, error: fetchError } = await supabaseAdmin
+                    .from('orders')
+                    .select('metadata, qr_image_url')
+                    .eq('id', order_id)
+                    .single();
+
+                let currentMeta = currentOrder?.metadata || {};
+                if (typeof currentMeta === 'string') {
+                    try {
+                        currentMeta = JSON.parse(currentMeta);
+                    } catch (e) {
+                        console.error("Metadata parse error", e);
+                        currentMeta = {};
                     }
-                } catch (e) {
-                    console.error("Order QR Gen Error", e);
-                    ticketError = "Order QR Error: " + String(e);
                 }
 
+                // Check if QR already exists (friendly URL)
+                let friendlyUrl = currentOrder?.qr_image_url;
+                let qrPath = currentMeta?.qr_object_path;
+
+                // If missing, generate it
+                if (!friendlyUrl || !friendlyUrl.includes('/api/images/order/')) {
+                    try {
+                        const qrUid = crypto.randomUUID();
+                        const verifyUrl = `https://theearlykickoff.co.ke/verify-order/${order_id}`;
+
+                        const dataUrl = await QRCode.toDataURL(verifyUrl, {
+                            type: 'image/png',
+                            width: 300,
+                            margin: 2
+                        });
+
+                        const base64Data = dataUrl.split(',')[1];
+                        const binaryString = atob(base64Data);
+                        const len = binaryString.length;
+                        const bytes = new Uint8Array(len);
+                        for (let k = 0; k < len; k++) bytes[k] = binaryString.charCodeAt(k);
+
+                        const fileName = `orders/${order_id}/${qrUid}.png`;
+                        const { error: uploadError } = await supabaseAdmin.storage
+                            .from('imageBank')
+                            .upload(fileName, bytes, { contentType: 'image/png', upsert: true });
+
+                        if (!uploadError) {
+                            friendlyUrl = `https://theearlykickoff.co.ke/api/images/order/${order_id}`;
+                            qrPath = `imageBank/${fileName}`;
+                        } else {
+                            console.error("QR Upload Error inside mpesa func", uploadError);
+                        }
+                    } catch (e) {
+                        console.error("QR Gen Error inside mpesa func", e);
+                    }
+                }
+
+                // Update Order
+                const updatePayload: any = { status: 'paid' };
+                if (friendlyUrl) {
+                    updatePayload.qr_image_url = friendlyUrl;
+                    updatePayload.qr_code = friendlyUrl;
+                    updatePayload.metadata = {
+                        ...currentMeta,
+                        qr_object_path: qrPath
+                    };
+                }
+
+                const { error: updateError } = await supabaseAdmin.from('orders')
+                    .update(updatePayload)
+                    .eq('id', order_id);
+
+                if (updateError) {
+                    console.error("Order Update Error", updateError);
+                }
             } else if (event_id) {
                 try {
                     const res = await fetch(ticketsUrl, {
