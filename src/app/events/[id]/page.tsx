@@ -126,7 +126,8 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                 attempts++;
                 const { data: pData } = await supabase
                     .from('payments')
-                    .select('status')
+                    .from('payments')
+                    .select('status, raw_payload')
                     .eq('id', paymentId)
                     .single();
 
@@ -134,7 +135,20 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                     clearInterval(pollInterval);
                     setMpesaProcessing(false);
                     setShowCheckoutModal(false);
-                    router.push('/my-tickets?success=true');
+
+                    let redirectUrl = '/my-tickets?success=true';
+                    // Check for warnings
+                    const payload = typeof pData.raw_payload === 'string'
+                        ? JSON.parse(pData.raw_payload)
+                        : pData.raw_payload;
+
+                    if (payload?.ticket_error) {
+                        redirectUrl += `&warning=${encodeURIComponent(payload.ticket_error)}`;
+                    } else if (payload?.message && payload.message.includes("Ticket Gen Failed")) {
+                        redirectUrl += `&warning=${encodeURIComponent(payload.message)}`;
+                    }
+
+                    router.push(redirectUrl);
                 } else if (pData?.status === 'failed') {
                     clearInterval(pollInterval);
                     setMpesaProcessing(false);

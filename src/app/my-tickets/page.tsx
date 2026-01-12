@@ -62,13 +62,24 @@ function MyTicketsContent() {
     if (authLoading || loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div></div>;
 
     const showSuccess = searchParams.get('success');
+    const warning = searchParams.get('warning');
 
     return (
         <div className="bg-gray-50 min-h-screen py-12">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <h1 className="text-3xl font-serif font-bold text-gray-900 mb-8">My Tickets</h1>
 
-                {showSuccess && (
+                {warning && (
+                    <div className="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded mb-6 relative">
+                        <strong className="font-bold">Warning: </strong>
+                        <span className="block sm:inline">{decodeURIComponent(warning)}</span>
+                        <span className="absolute top-0 bottom-0 right-0 px-4 py-3" onClick={() => router.replace('/my-tickets')}>
+                            <X className="h-4 w-4" />
+                        </span>
+                    </div>
+                )}
+
+                {showSuccess && !warning && (
                     <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6 relative">
                         <strong className="font-bold">Success! </strong>
                         <span className="block sm:inline">Your ticket has been purchased successfully.</span>
