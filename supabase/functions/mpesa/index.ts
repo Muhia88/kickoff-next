@@ -109,113 +109,56 @@ Deno.serve(async (req) => {
             const callbackBase = Deno.env.get('MPESA_CALLBACK_BASE') || 'https://theearlykickoff.co.ke';
             const callbackUrl = `${callbackBase}/api/payments/mpesa/webhook`;
 
-            // 3. Simulation Logic
-            if (!shortcode || !passkey || !consumerKey || !consumerSecret) {
-                console.log("M-Pesa Config missing. Using SIMULATION mode.");
+            // 3. FORCE SIMULATION (as requested, skip real STK push)
+            console.log("Using SIMULATION mode (forced).");
 
-                await supabaseAdmin.from('payments').update({
-                    status: 'success',
-                    provider_transaction_id: `SIM-${Date.now()}`,
-                    raw_payload: { simulation: true, message: "Simulated Success" }
-                }).eq('id', payment.id);
+            await supabaseAdmin.from('payments').update({
+                status: 'success',
+                provider_transaction_id: `SIM-${Date.now()}`,
+                raw_payload: { simulation: true, message: "Simulated Success" }
+            }).eq('id', payment.id);
 
-                const ticketsUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/tickets`;
-                const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
+            const ticketsUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/tickets`;
+            const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
 
-                // Logic based on Type
-                if (order_id) {
-                    await supabaseAdmin.from('orders').update({ status: 'paid' }).eq('id', order_id);
-                    try {
-                        await fetch(ticketsUrl, {
-                            method: 'POST',
-                            headers: { 'Authorization': `Bearer ${anonKey}`, 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ action: 'create_order_qr', order_id: order_id })
-                        });
-                    } catch (e) { console.error("Order QR Gen Error", e); }
+            // Logic based on Type
+            if (order_id) {
+                await supabaseAdmin.from('orders').update({ status: 'paid' }).eq('id', order_id);
+                try {
+                    await fetch(ticketsUrl, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${anonKey}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'create_order_qr', order_id: order_id })
+                    });
+                } catch (e) { console.error("Order QR Gen Error", e); }
 
-                } else if (event_id) {
-                    try {
-                        await fetch(ticketsUrl, {
-                            method: 'POST',
-                            headers: { 'Authorization': `Bearer ${anonKey}`, 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ action: 'create_tickets', event_id, user_id: user.id, quantity: quantity || 1 })
-                        });
-                    } catch (e) { console.error("Ticket Gen Error", e); }
+            } else if (event_id) {
+                try {
+                    await fetch(ticketsUrl, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${anonKey}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'create_tickets', event_id, user_id: user.id, quantity: quantity || 1 })
+                    });
+                } catch (e) { console.error("Ticket Gen Error", e); }
 
-                } else if (plan === 'vip') {
-                    // Activate VIP
-                    try {
-                        await fetch(subscriptionsUrl, {
-                            method: 'POST',
-                            headers: { 'Authorization': `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ action: 'activate', user_id: user.id, payment_id: payment.id })
-                        });
-                    } catch (e) {
-                        console.error("VIP Activation Error", e);
-                    }
+            } else if (plan === 'vip') {
+                // Activate VIP
+                try {
+                    await fetch(subscriptionsUrl, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${anonKey}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'activate', user_id: user.id, payment_id: payment.id })
+                    });
+                } catch (e) {
+                    console.error("VIP Activation Error", e);
                 }
-
-                return new Response(JSON.stringify({
-                    status: 'initiated',
-                    payment_id: payment.id,
-                    message: 'M-Pesa Simulation: Success'
-                }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-            }
-
-            // 4. Real STK Push (Omitted for brevity, assumed unchanged from previous steps)
-            // But I need to include it or I lose it if I use write_to_file!
-            // I MUST include the Real STK Push logic here.
-
-            // ... Authenticate ...
-            let accessToken = '';
-            try {
-                const auth = btoa(`${consumerKey}:${consumerSecret}`);
-                const tokenResp = await fetch('https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials', {
-                    headers: { 'Authorization': `Basic ${auth}` }
-                });
-                if (tokenResp.ok) {
-                    const tokenData = await tokenResp.json();
-                    accessToken = tokenData.access_token;
-                } else {
-                    return new Response(JSON.stringify({ error: 'M-Pesa Authentication Failed' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-                }
-            } catch (e) {
-                return new Response(JSON.stringify({ error: 'M-Pesa Authentication Error' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-            }
-
-            const timestamp = new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
-            const password = btoa(`${shortcode}${passkey}${timestamp}`);
-
-            const stkPayload = {
-                BusinessShortCode: shortcode,
-                Password: password,
-                Timestamp: timestamp,
-                TransactionType: 'CustomerPayBillOnline',
-                Amount: 1,
-                PartyA: phone_number,
-                PartyB: shortcode,
-                PhoneNumber: phone_number,
-                CallBackURL: callbackUrl,
-                AccountReference: plan ? `VIP Subscription` : (order_id ? `Order ${order_id}` : `Event ${event_id}`),
-                TransactionDesc: 'Payment'
-            };
-
-            const stkResp = await fetch('https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify(stkPayload)
-            });
-
-            const stkData = await stkResp.json();
-
-            if (stkData.CheckoutRequestID) {
-                await supabaseAdmin.from('payments').update({ provider_transaction_id: stkData.CheckoutRequestID }).eq('id', payment.id);
             }
 
             return new Response(JSON.stringify({
-                ...stkData,
-                payment_id: payment.id
-            }), { status: stkResp.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+                status: 'initiated',
+                payment_id: payment.id,
+                message: 'M-Pesa Simulation: Success'
+            }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
 
         return new Response(JSON.stringify({ error: 'Invalid action' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
