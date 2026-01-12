@@ -99,27 +99,67 @@ export async function POST(req: NextRequest) {
             }
             // 2. Standard Order Logic
             else if (payment.order_id) {
-                await supabaseAdmin.from('orders').update({
-                    status: 'paid'
-                }).eq('id', payment.order_id);
+                // Fetch the order to get current metadata
+                const { data: orderData } = await supabaseAdmin
+                    .from('orders')
+                    .select('metadata')
+                    .eq('id', payment.order_id)
+                    .single();
 
-                // Call Tickets Edge Function for Order QR
-                const ticketsUrl = `${supabaseUrl}/functions/v1/tickets`;
-                try {
-                    await fetch(ticketsUrl, {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${supabaseServiceKey}`,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            action: 'create_order_qr',
-                            order_id: payment.order_id
-                        })
-                    });
-                } catch (e) {
-                    console.error("Failed to invoke tickets function for Order QR:", e);
+                // Parse metadata safely
+                let currentMeta = orderData?.metadata || {};
+                if (typeof currentMeta === 'string') {
+                    try {
+                        currentMeta = JSON.parse(currentMeta);
+                    } catch (e) {
+                        console.error("Failed to parse order metadata", e);
+                        currentMeta = {};
+                    }
                 }
+
+                // Generate QR code for order
+                const qrUid = crypto.randomUUID();
+                const friendlyUrl = `https://theearlykickoff.co.ke/api/images/order/${payment.order_id}`;
+                const objectPath = `orders/${payment.order_id}/${qrUid}.png`;
+
+                // Upload QR Code to Supabase Storage
+                try {
+                    // Import QRCode dynamically or use a simple approach
+                    // Since we're in Next.js API route, we can use qrcode package
+                    const QRCode = require('qrcode');
+                    const verifyUrl = `https://theearlykickoff.co.ke/verify-order/${payment.order_id}`;
+
+                    const dataUrl = await QRCode.toDataURL(verifyUrl, {
+                        type: 'image/png',
+                        width: 300,
+                        margin: 2
+                    });
+
+                    // Convert Base64 to Buffer
+                    const base64Data = dataUrl.split(',')[1];
+                    const buffer = Buffer.from(base64Data, 'base64');
+
+                    const { error: uploadError } = await supabaseAdmin.storage
+                        .from('imageBank')
+                        .upload(objectPath, buffer, { contentType: 'image/png', upsert: true });
+
+                    if (uploadError) {
+                        console.error("Failed to upload order QR:", uploadError);
+                    }
+                } catch (qrError) {
+                    console.error("Failed to generate order QR:", qrError);
+                }
+
+                // Update order with paid status and QR URL
+                await supabaseAdmin.from('orders').update({
+                    status: 'paid',
+                    qr_image_url: friendlyUrl,
+                    qr_code: friendlyUrl,
+                    metadata: {
+                        ...currentMeta,
+                        qr_object_path: `imageBank/${objectPath}`
+                    }
+                }).eq('id', payment.order_id);
             }
 
             return NextResponse.json({ message: "Payment processed successfully" });
