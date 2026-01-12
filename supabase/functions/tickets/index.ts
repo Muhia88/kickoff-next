@@ -101,6 +101,10 @@ Deno.serve(async (req) => {
                     ticket_uid: uid,
                     purchased_at: new Date().toISOString(),
                     qr_object_path: qrPath,
+                    ticket_uid: uid,
+                    purchased_at: new Date().toISOString(),
+                    qr_object_path: qrPath,
+                    qr_code_url: qrUrl, // Persist friendly URL to DB
                     is_used: false
                 };
 
