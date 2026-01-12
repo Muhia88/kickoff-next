@@ -22,12 +22,24 @@ serve(async (req) => {
         if (action === 'create') {
             if (!user_id) throw new Error("Missing user_id");
 
+            // Resolve DB User ID
+            const { data: userData, error: userLookupError } = await supabaseAdmin
+                .from('users')
+                .select('id')
+                .eq('supabase_id', user_id)
+                .single();
+
+            if (userLookupError || !userData) {
+                throw new Error("User record not found");
+            }
+            const dbUserId = userData.id;
+
             const startDate = new Date().toISOString();
             // Insert Subscription
             const { data, error } = await supabaseAdmin
                 .from('subscriptions')
                 .insert({
-                    user_id: user_id,
+                    user_id: dbUserId,
                     plan: plan || 'vip_monthly',
                     price: 2000,
                     interval_days: interval_days || 30,
@@ -46,17 +58,24 @@ serve(async (req) => {
         if (action === 'activate') {
             if (!user_id) throw new Error("Missing user_id");
 
+            // Resolve DB User ID
+            const { data: userData, error: userLookupError } = await supabaseAdmin
+                .from('users')
+                .select('id')
+                .eq('supabase_id', user_id)
+                .single();
+
+            if (userLookupError || !userData) {
+                throw new Error("User record not found");
+            }
+            const dbUserId = userData.id;
+
             // 1. Calculate Expiry
             const now = new Date();
             const days = interval_days || 30;
             const expires = new Date(now.getTime() + (days * 24 * 60 * 60 * 1000));
 
-            // 2. Update Subscription Table (Find active/pending one? Or just update latest?)
-            // We ideally need subscription_id. But if we lack it, we update the user's latest pending subscription?
-            // Or better, just insert a new Active one if not passed.
-            // But simpler: just update the user metadata as that's what controls access in frontend.
-
-            // Update User Metadata for immediate access
+            // 2. Update User Metadata for immediate access
             const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
                 user_id,
                 { user_metadata: { is_vip: true, role: 'vip', vip_expires: expires.toISOString() } }
@@ -64,12 +83,15 @@ serve(async (req) => {
 
             if (authError) throw authError;
 
-            // 3. Update 'subscriptions' table if possible
+            // Update public.users role
+            await supabaseAdmin.from('users').update({ role: 'vip' }).eq('id', dbUserId);
+
+            // 3. Update 'subscriptions' table
             // We'll search for the latest pending subscription for this user and activate it.
             const { data: subs } = await supabaseAdmin
                 .from('subscriptions')
                 .select('id')
-                .eq('user_id', user_id)
+                .eq('user_id', dbUserId)
                 .eq('status', 'pending')
                 .order('created_at', { ascending: false })
                 .limit(1);
@@ -82,9 +104,9 @@ serve(async (req) => {
                     last_payment_id: payment_id || null
                 }).eq('id', subs[0].id);
             } else {
-                // If no pending subscription found (edge case), create one?
+                // If no pending subscription found (edge case), create one
                 await supabaseAdmin.from('subscriptions').insert({
-                    user_id: user_id,
+                    user_id: dbUserId,
                     plan: 'vip_monthly',
                     price: 2000,
                     status: 'active',

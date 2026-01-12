@@ -37,18 +37,6 @@ Deno.serve(async (req) => {
                 return new Response(JSON.stringify({ error: 'Missing order_id/event_id/plan or phone_number' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
             }
 
-            // 1. Resolve DB User ID
-            const { data: userData, error: userLookupError } = await supabaseAdmin
-                .from('users')
-                .select('id')
-                .eq('supabase_id', user.id)
-                .single();
-
-            if (userLookupError || !userData) {
-                return new Response(JSON.stringify({ error: 'User record not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-            }
-            const dbUserId = userData.id;
-
             let targetAmount = 0;
             const subscriptionsUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/subscriptions`;
             const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -95,7 +83,6 @@ Deno.serve(async (req) => {
             const { data: payment, error: paymentError } = await supabaseAdmin
                 .from('payments')
                 .insert({
-                    user_id: dbUserId,
                     order_id: order_id || null,
                     raw_payload: event_id ? { event_id, quantity: quantity || 1, user_id: user.id }
                         : plan ? { plan, user_id: user.id }
