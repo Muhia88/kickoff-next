@@ -2,7 +2,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 
-import QRCode from 'qrcode';
+
 
 export async function POST(req: NextRequest) {
     try {
