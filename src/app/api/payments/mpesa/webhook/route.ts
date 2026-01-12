@@ -82,7 +82,23 @@ export async function POST(req: NextRequest) {
                     status: 'paid'
                 }).eq('id', payment.order_id);
 
-                // (Optional: Order QR generation logic here if desired, but focus is tickets)
+                // Call Tickets Edge Function for Order QR
+                const ticketsUrl = `${supabaseUrl}/functions/v1/tickets`;
+                try {
+                    await fetch(ticketsUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${supabaseServiceKey}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            action: 'create_order_qr',
+                            order_id: payment.order_id
+                        })
+                    });
+                } catch (e) {
+                    console.error("Failed to invoke tickets function for Order QR:", e);
+                }
             }
 
             return NextResponse.json({ message: "Payment processed successfully" });
