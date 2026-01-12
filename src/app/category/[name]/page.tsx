@@ -142,13 +142,13 @@ const CategoryPage = ({ params }: { params: Promise<{ name: string }> }) => {
                     case 'price_desc':
                         query = query.order('price', { ascending: false });
                         break;
-                    case 'name_asc': // approximation using main product name if 'name' column is reliable
-                        query = query.order('name', { ascending: true });
+                    case 'name_asc':
+                        query = query.order('name', { foreignTable: 'product_names', ascending: true });
                         break;
                     case 'name_desc':
-                        query = query.order('name', { ascending: false });
+                        query = query.order('name', { foreignTable: 'product_names', ascending: false });
                         break;
-                    default: // best_selling fallback (needs logic, usually sales count. For now default ID or explicit col)
+                    default:
                         // If we don't have a 'sales_count' column, we can just order by ID or Name
                         query = query.order('id', { ascending: true });
                 }
