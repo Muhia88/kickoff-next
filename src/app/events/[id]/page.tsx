@@ -104,34 +104,13 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
         setMpesaError(null);
 
         try {
-            // 1. Create Order
-            const { data: orderData, error: orderError } = await supabase.functions.invoke('orders', {
-                body: {
-                    items: [{
-                        event_id: event?.id,
-                        quantity: 1, // Default 1
-                        type: 'packet' // Optional
-                    }],
-                    metadata: {
-                        is_ticket: true,
-                        event_name: event?.name
-                    },
-                    source: 'web_event_page'
-                }
-            });
-
-            if (orderError) throw orderError;
-            if (orderData.error) throw new Error(orderData.error);
-
-            const orderId = orderData.order_id;
-
-            // 2. Initiate M-Pesa Payment via Edge Function using Order ID
+            // Initiate M-Pesa Payment directly (Tickets decoupled from Orders)
             const { data, error } = await supabase.functions.invoke('mpesa', {
                 body: {
                     action: 'initiate',
-                    order_id: orderId, // Use order_id
-                    phone_number: phone,
-                    amount: Number(event?.ticket_price || event?.price || 0)
+                    event_id: event?.id,
+                    quantity: 1, // Default 1
+                    phone_number: phone
                 }
             });
 
@@ -140,7 +119,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
 
             const paymentId = data.payment_id;
 
-            // 3. Poll for Success
+            // Poll for Success
             let attempts = 0;
             const maxAttempts = 30; // 60 seconds
             const pollInterval = setInterval(async () => {
@@ -175,6 +154,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
             setMpesaError(err.message || 'Failed to initiate payment');
         }
     };
+
 
     if (loading) return <div className="py-20 text-center"><Spinner /></div>;
     if (error) return <div className="py-20 text-center text-red-600">{error}</div>;

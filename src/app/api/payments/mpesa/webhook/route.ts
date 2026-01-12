@@ -2,6 +2,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 
+import QRCode from 'qrcode';
+
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
@@ -23,7 +25,7 @@ export async function POST(req: NextRequest) {
         const { data: payment } = await supabaseAdmin
             .from('payments')
             // Try matching by CheckoutRequestID (Provider Transaction ID)
-            .select('id, order_id, status')
+            .select('id, order_id, status, raw_payload, amount') // Select raw_payload and amount
             .eq('provider_transaction_id', CheckoutRequestID)
             .single();
 
@@ -48,10 +50,64 @@ export async function POST(req: NextRequest) {
                 provider_transaction_id: receiptNumber || CheckoutRequestID
             }).eq('id', payment.id);
 
-            if (payment.order_id) {
+            // 1. Event Ticket Logic (Decoupled from Orders)
+            if (payment.raw_payload?.event_id) {
+                const { event_id, quantity, user_id } = payment.raw_payload;
+                const qty = quantity || 1;
+                const itemsToInsert = [];
+
+                console.log(`Creating ${qty} tickets for Event ${event_id}`);
+
+                for (let q = 0; q < qty; q++) {
+                    const uid = crypto.randomUUID();
+                    let qrPath = null;
+                    let qrUrl = null;
+
+                    try {
+                        const verifyUrl = `https://theearlykickoff.co.ke/api/tickets/verify/${uid}`;
+                        const dataUrl = await QRCode.toDataURL(verifyUrl);
+                        const base64Data = dataUrl.split(',')[1];
+                        const buffer = Buffer.from(base64Data, 'base64');
+
+                        const fileName = `tickets/${event_id}/${uid}.png`;
+                        const { error: uploadError } = await supabaseAdmin.storage
+                            .from('imageBank')
+                            .upload(fileName, buffer, { contentType: 'image/png', upsert: true });
+
+                        if (!uploadError) {
+                            qrPath = `imageBank/${fileName}`;
+                            const { data: signedData } = await supabaseAdmin.storage
+                                .from('imageBank')
+                                .createSignedUrl(fileName, 31536000);
+                            if (signedData) qrUrl = signedData.signedUrl;
+                        }
+                    } catch (e) {
+                        console.error("QR Gen Error", e);
+                    }
+
+                    itemsToInsert.push({
+                        user_id: user_id || null, // Might be null if legacy
+                        event_id: event_id,
+                        price: (payment.amount || 0) / qty,
+                        ticket_uid: uid,
+                        purchased_at: new Date().toISOString(),
+                        qr_object_path: qrPath,
+                        qr_code_url: qrUrl
+                    });
+                }
+
+                if (itemsToInsert.length > 0) {
+                    await supabaseAdmin.from('tickets').insert(itemsToInsert);
+                }
+
+            }
+            // 2. Standard Order Logic
+            else if (payment.order_id) {
                 await supabaseAdmin.from('orders').update({
                     status: 'paid'
                 }).eq('id', payment.order_id);
+
+                // (Optional: Order QR generation logic here if desired, but focus is tickets)
             }
 
             return NextResponse.json({ message: "Payment processed successfully" });
