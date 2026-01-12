@@ -227,7 +227,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
 
             {/* Auth Prompt Modal */}
             {showAuthPrompt && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50" onClick={() => setShowAuthPrompt(false)}>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm" onClick={() => setShowAuthPrompt(false)}>
                     <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl" onClick={e => e.stopPropagation()}>
                         <h3 className="text-lg font-bold mb-2">Sign in required</h3>
                         <p className="text-sm text-gray-600 mb-4">You need an account to purchase tickets.</p>
@@ -241,7 +241,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
 
             {/* Checkout Modal */}
             {showCheckoutModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50" onClick={() => setShowCheckoutModal(false)}>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm" onClick={() => setShowCheckoutModal(false)}>
                     <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl" onClick={e => e.stopPropagation()}>
                         <h3 className="text-lg font-bold mb-2">Pay with M-Pesa</h3>
                         <p className="text-sm text-gray-600 mb-4">Enter the phone number to receive the M-Pesa prompt.</p>

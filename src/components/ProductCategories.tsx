@@ -3,32 +3,32 @@ import Link from 'next/link';
 const ProductCategories = () => {
     const categories = [
         {
-            name: 'WHISKY',
+            name: 'Whisky',
             image: '/whiskey/jack_daniels.png',
             href: '/whisky'
         },
         {
-            name: 'GIN',
+            name: 'Gin',
             image: '/gin/Gilbeys_london.png',
             href: '/gin'
         },
         {
-            name: 'BEER',
+            name: 'Beer & Cider',
             image: '/beer/guiness.png',
             href: '/beer'
         },
         {
-            name: 'VODKA',
+            name: 'Vodka',
             image: '/vodka/smirnoff_vodka.png',
             href: '/vodka'
         },
         {
-            name: 'COGNAC',
+            name: 'Cognac & Brandy',
             image: '/cognac/martell.png',
             href: '/cognac'
         },
         {
-            name: 'WINE',
+            name: 'Wine',
             image: '/wine/4th_Street_Red.png',
             href: '/wine'
         }
