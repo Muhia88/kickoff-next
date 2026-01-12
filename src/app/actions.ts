@@ -18,40 +18,7 @@ console.log("Service Key Prefix:", supabaseServiceKey?.substring(0, 10));
 
 const supabaseAdmin = createClient(supabaseUrl!, supabaseServiceKey!);
 
-export async function getSignedImageURL(path: string | null | undefined) {
-    if (!path) return { signedUrl: null, error: "No path provided" };
 
-    try {
-        // 1. Clean the path.
-        let cleanPath = path.replace(/^\/+/, '');
-
-        // 2. Determine Bucket and Path
-        let bucket = 'uploads'; // Default
-
-        if (cleanPath.startsWith('uploads/')) {
-            cleanPath = cleanPath.substring(8);
-        } else if (cleanPath.startsWith('imageBank/')) {
-            bucket = 'imageBank';
-            cleanPath = cleanPath.substring(10);
-        }
-
-        // 3. Create Signed URL
-        const { data, error } = await supabaseAdmin
-            .storage
-            .from(bucket)
-            .createSignedUrl(cleanPath, 60 * 60);
-
-        if (error) {
-            console.error("Error signing URL:", error);
-            return { signedUrl: null, error: error.message };
-        }
-
-        return { signedUrl: data.signedUrl };
-    } catch (e: any) {
-        console.error("Exception signing URL:", e);
-        return { signedUrl: null, error: e.message || "Unknown exception" };
-    }
-}
 
 export async function uploadAvatar(formData: FormData) {
     const file = formData.get('file') as File;

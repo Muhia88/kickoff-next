@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { Camera, User as UserIcon, Loader2 } from 'lucide-react';
-import { getSignedImageURL, uploadAvatar } from '@/app/actions';
+import { uploadAvatar } from '@/app/actions';
 
 const ProfilePage = () => {
     const router = useRouter();
@@ -54,12 +54,9 @@ const ProfilePage = () => {
             setAvatarUrl(path);
             return;
         }
-        const response = await getSignedImageURL(path);
-        if (response && response.signedUrl) {
-            setAvatarUrl(response.signedUrl);
-        } else {
-            console.error("Failed to load avatar:", path, response?.error);
-        }
+        // Use proxy
+        const cleanPath = path.replace(/^\/+/, '');
+        setAvatarUrl(`/api/images/${cleanPath}`);
     };
 
     const handleSave = async (e: React.FormEvent) => {

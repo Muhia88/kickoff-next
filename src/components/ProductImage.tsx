@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { getSignedImageURL } from '@/app/actions';
+
 import { LoadingSpinner } from './LoadingSpinner';
 import { ImageOff } from 'lucide-react';
 
@@ -33,53 +33,19 @@ export default function ProductImage({ path, alt, className }: ProductImageProps
             return;
         }
 
-        const fetchImage = async () => {
-            try {
-                // If it's already a full URL (legacy or external), use it
-                if (path.startsWith('http') || path.startsWith('data:')) {
-                    setImgSrc(path);
-                    return;
-                }
+        // Simple proxy logic: 
+        // If http/data, use as is.
+        // Else, append to /api/images/
+        if (path.startsWith('http') || path.startsWith('data:')) {
+            setImgSrc(path);
+            setIsLoading(false);
+            return;
+        }
 
-                // Clean path like 'uploads/products/...' -> 'products/...'
-                let resolvePath = path.replace(/^\/+/, '');
-
-                // Handle legacy tokens (i/...)
-                const tokenMatch = path.match(/^\/?i\/([^.]+)/);
-                if (tokenMatch) {
-                    try {
-                        let base64 = tokenMatch[1].replace(/-/g, '+').replace(/_/g, '/');
-                        const pad = base64.length % 4;
-                        if (pad) base64 += '='.repeat(4 - pad);
-
-                        const jsonStr = atob(base64);
-                        const data = JSON.parse(jsonStr);
-                        if (data.p) {
-                            resolvePath = data.p;
-                        }
-                    } catch (e) {
-                        console.warn('Failed to decode token, trying path as is:', path);
-                    }
-                }
-
-                // Call server action to sign URL
-                const response = await getSignedImageURL(resolvePath);
-
-                if (response && response.signedUrl) {
-                    setImgSrc(response.signedUrl);
-                } else {
-                    console.error("Failed to sign URL for path:", resolvePath, "Error:", response?.error);
-                    setHasError(true);
-                    setIsLoading(false);
-                }
-            } catch (e) {
-                console.error("Error loading image:", e);
-                setHasError(true);
-                setIsLoading(false);
-            }
-        };
-
-        fetchImage();
+        // Clean leading slashes
+        const cleanPath = path.replace(/^\/+/, '');
+        setImgSrc(`/api/images/${cleanPath}`);
+        // We let the img tag's onLoad/onError handle loading state for the proxy url
     }, [path]);
 
     return (
