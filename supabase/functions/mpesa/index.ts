@@ -115,7 +115,7 @@ Deno.serve(async (req) => {
             await supabaseAdmin.from('payments').update({
                 status: 'success',
                 provider_transaction_id: `SIM-${Date.now()}`,
-                raw_payload: { simulation: true, message: "Simulated Success" }
+                raw_payload: { ...(typeof payment.raw_payload === 'object' ? payment.raw_payload : {}), simulation: true, message: "Simulated Success" }
             }).eq('id', payment.id);
 
             const ticketsUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/tickets`;
