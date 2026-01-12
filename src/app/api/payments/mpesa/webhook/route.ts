@@ -76,6 +76,27 @@ export async function POST(req: NextRequest) {
                 }
 
             }
+            // 3. VIP Subscription Logic
+            else if (payment.raw_payload?.plan === 'vip') {
+                const { user_id } = payment.raw_payload;
+                const subsUrl = `${supabaseUrl}/functions/v1/subscriptions`;
+                try {
+                    await fetch(subsUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${supabaseServiceKey}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            action: 'activate',
+                            user_id: user_id,
+                            payment_id: payment.id
+                        })
+                    });
+                } catch (e) {
+                    console.error("Failed to invoke subscriptions function:", e);
+                }
+            }
             // 2. Standard Order Logic
             else if (payment.order_id) {
                 await supabaseAdmin.from('orders').update({

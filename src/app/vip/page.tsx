@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { X } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 const vipBenefits = [
     'Priority invites to hosted events',
@@ -19,7 +20,7 @@ const vipBenefits = [
 
 const Vip = () => {
     const router = useRouter();
-    const { user, refreshUser } = useAuth();
+    const { user, profile, refreshUser } = useAuth();
     const [showCheckout, setShowCheckout] = useState(false);
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
@@ -28,31 +29,91 @@ const Vip = () => {
 
     useEffect(() => {
         if (user) {
-            // Check usage of user_metadata vs updated types
             const meta = user.user_metadata || {};
-            setName(meta.full_name || meta.name || '');
+            setName(profile?.full_name || meta.full_name || meta.name || '');
             setEmail(user.email || '');
+            // Prefill Phone from Profile or Metadata
+            const userPhone = profile?.phone || meta.phone || '';
+            if (userPhone) setPhone(userPhone);
         }
-    }, [user]);
+    }, [user, profile]);
 
     const isVip = () => {
         if (!user) return false;
-        // Check role or metadata
+        // Check profile (DB) or metadata (Auth)
+        if (profile?.role === 'vip' || profile?.is_vip) return true;
+
         const meta = user.user_metadata || {};
-        // user.role in supabase auth is usually 'authenticated', we might store custom roles in app_metadata or separate table
-        // For now, let's assume metadata 'is_vip'
-        return meta.is_vip || meta.role === 'vip';
+        if (meta.is_vip || meta.role === 'vip') return true;
+
+        if (meta.vip_expires) {
+            const exp = new Date(meta.vip_expires);
+            if (!isNaN(exp.getTime()) && exp > new Date()) return true;
+        }
+
+        return false;
     };
 
-    const handlePay = (e: React.FormEvent) => {
+    const handlePay = async (e: React.FormEvent) => {
         e.preventDefault();
         setProcessing(true);
-        // Simulate payment / TODO backend
-        setTimeout(() => {
-            alert("VIP Subscription integration coming soon! This is a demo.");
+
+        // 1. Format Phone to 254
+        let formattedPhone = phone.replace(/\s/g, '');
+        if (formattedPhone.startsWith('0')) {
+            formattedPhone = '254' + formattedPhone.slice(1);
+        } else if (formattedPhone.startsWith('+254')) {
+            formattedPhone = formattedPhone.slice(1);
+        }
+
+        // Ensure it starts with 254 (if user typed 7... without 0)
+        if (!formattedPhone.startsWith('254') && formattedPhone.length === 9) {
+            formattedPhone = '254' + formattedPhone;
+        }
+
+        try {
+            // 2. Initiate Payment via M-Pesa Edge Function
+            const { data, error } = await supabase.functions.invoke('mpesa', {
+                body: {
+                    action: 'initiate',
+                    plan: 'vip',
+                    phone_number: formattedPhone
+                }
+            });
+
+            if (error) throw error;
+            if (data?.error) throw new Error(data.error);
+
+            alert(`Payment initiated! Please check your phone (${formattedPhone}) and enter your PIN.`);
+
+            // 3. Poll / Wait for Update
+            // For simplicity, we'll wait a bit and try to refresh user. 
+            // Real-time would be better, but polling is easier to implement without websocket setup here.
+
+            const checkInterval = setInterval(async () => {
+                await refreshUser();
+                if (isVip()) {
+                    clearInterval(checkInterval);
+                    setProcessing(false);
+                    // Success State handled by render logic
+                }
+            }, 3000);
+
+            // Timeout after 60s
+            setTimeout(() => {
+                clearInterval(checkInterval);
+                if (processing) {
+                    setProcessing(false);
+                    // Just let them close or try again. 
+                    // Ideally check payment status from DB.
+                }
+            }, 60000);
+
+        } catch (err: any) {
+            console.error("VIP Purchase Error:", err);
+            alert("Payment Failed: " + err.message);
             setProcessing(false);
-            setShowCheckout(false);
-        }, 1500);
+        }
     };
 
     const renderModalBody = () => {
@@ -112,7 +173,7 @@ const Vip = () => {
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700">Phone Number</label>
+                    <label className="block text-sm font-medium text-gray-700">Phone Number (M-Pesa)</label>
                     <input
                         type="tel"
                         required
@@ -121,13 +182,14 @@ const Vip = () => {
                         className="mt-1 block w-full border rounded px-3 py-2 text-gray-900"
                         placeholder="2547XXXXXXXX"
                     />
+                    <p className="text-xs text-gray-500 mt-1">Please ensure format starts with 254 or 07...</p>
                 </div>
                 <button
                     type="submit"
                     disabled={processing}
                     className="w-full bg-red-700 text-white py-3 rounded font-bold mt-4 hover:bg-red-800 transition-colors disabled:opacity-60"
                 >
-                    {processing ? 'Processing...' : 'Pay KSh 2,000'}
+                    {processing ? 'Processing Payment...' : 'Pay KSh 2,000'}
                 </button>
             </form>
         );
@@ -140,13 +202,11 @@ const Vip = () => {
                     {/* Left: VIP image */}
                     <div className="flex items-center justify-center">
                         <img
-                            src="/VIP2.jpg" // Using VIP2 from public assets as VIP1 didn't exist in my earlier copy commands? Check.
-                            // Actually VIP2 was copied. VIP1 was in source.
-                            // I should fallback image logic
+                            src="/VIP2.jpg"
                             alt="VIP Experience"
                             className="rounded-lg shadow-lg w-full max-w-md object-cover"
                             style={{ maxHeight: '400px' }}
-                            onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://source.unsplash.com/random/400x400/?vip,party' }}
+                            onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://images.unsplash.com/photo-1566737236500-c8ac43014a67?auto=format&fit=crop&q=80&w=1740' }}
                         />
                     </div>
 
@@ -173,7 +233,7 @@ const Vip = () => {
                 {/* Checkout Modal */}
                 {showCheckout && (
                     <div
-                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
                         onClick={() => setShowCheckout(false)}
                     >
                         <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md relative" onClick={(e) => e.stopPropagation()}>
