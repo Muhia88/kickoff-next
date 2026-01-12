@@ -112,6 +112,8 @@ Deno.serve(async (req) => {
             // 3. FORCE SIMULATION (as requested, skip real STK push)
             console.log("Using SIMULATION mode (forced).");
 
+            let ticketError = null;
+
             await supabaseAdmin.from('payments').update({
                 status: 'success',
                 provider_transaction_id: `SIM-${Date.now()}`,
@@ -132,13 +134,17 @@ Deno.serve(async (req) => {
                     });
                     if (!res.ok) {
                         const errTxt = await res.text();
+                        ticketError = "Order QR Failed: " + errTxt;
                         console.error("Order QR Gen Failed:", errTxt);
                         // Log to payment
                         await supabaseAdmin.from('payments').update({
                             raw_payload: { ...(typeof payment.raw_payload === 'object' ? payment.raw_payload : {}), ticket_error: errTxt }
                         }).eq('id', payment.id);
                     }
-                } catch (e) { console.error("Order QR Gen Error", e); }
+                } catch (e) {
+                    console.error("Order QR Gen Error", e);
+                    ticketError = "Order QR Error: " + String(e);
+                }
 
             } else if (event_id) {
                 try {
@@ -149,6 +155,7 @@ Deno.serve(async (req) => {
                     });
                     if (!res.ok) {
                         const errTxt = await res.text();
+                        ticketError = "Ticket Gen Failed: " + errTxt;
                         console.error("Ticket Gen Failed:", errTxt);
                         // Log to payment
                         await supabaseAdmin.from('payments').update({
@@ -157,6 +164,7 @@ Deno.serve(async (req) => {
                     }
                 } catch (e) {
                     console.error("Ticket Gen Error", e);
+                    ticketError = "Ticket Gen Error: " + String(e);
                     await supabaseAdmin.from('payments').update({
                         raw_payload: { ...(typeof payment.raw_payload === 'object' ? payment.raw_payload : {}), ticket_call_error: String(e) }
                     }).eq('id', payment.id);
@@ -178,7 +186,7 @@ Deno.serve(async (req) => {
             return new Response(JSON.stringify({
                 status: 'initiated',
                 payment_id: payment.id,
-                message: 'M-Pesa Simulation: Success'
+                message: 'M-Pesa Simulation: Success' + (ticketError ? ' | ' + ticketError : '')
             }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
 
