@@ -51,6 +51,39 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
     const [mpesaProcessing, setMpesaProcessing] = useState(false);
     const [mpesaError, setMpesaError] = useState<string | null>(null);
 
+    useEffect(() => {
+        if (!eventId) return;
+
+        const fetchEvent = async () => {
+            setLoading(true);
+            try {
+                // Try fetching from edge function or DB
+                const { data, error } = await supabase
+                    .from('events')
+                    .select('*')
+                    .eq('id', eventId)
+                    .single();
+
+                if (error) throw error;
+                setEvent(data);
+            } catch (err: any) {
+                setError(err.message || 'Failed to fetch event');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchEvent();
+    }, [eventId]);
+
+    const handleBuyTicket = () => {
+        if (!user) {
+            setShowAuthPrompt(true);
+            return;
+        }
+        setShowCheckoutModal(true);
+    };
+
     // Prefill Phone
     useEffect(() => {
         if (user?.user_metadata?.phone) {
