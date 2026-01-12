@@ -200,7 +200,21 @@ const Checkout = () => {
 
         } catch (err: any) {
             console.error(err);
-            setError(err.message || "Failed to place order");
+            let errorMessage = err.message || "Failed to place order";
+
+            // Extract detailed error from Edge Function response if available
+            if (err && typeof err === 'object' && 'context' in err && typeof err.context.json === 'function') {
+                try {
+                    const errorContext = await err.context.json();
+                    if (errorContext && errorContext.error) {
+                        errorMessage = errorContext.error;
+                    }
+                } catch (e) {
+                    // unexpected json parse error
+                }
+            }
+
+            setError(errorMessage);
             setIsProcessingMpesa(false);
         } finally {
             setLoading(false);
