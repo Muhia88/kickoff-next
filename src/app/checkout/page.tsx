@@ -47,7 +47,12 @@ const Checkout = () => {
 
     // Initial phone population
     useEffect(() => {
-        if (user?.user_metadata?.phone) setMpesaPhone(user.user_metadata.phone);
+        if (user?.user_metadata?.phone) {
+            let p = user.user_metadata.phone.replace(/\D/g, '');
+            if (p.startsWith('0')) p = '254' + p.substring(1);
+            if (p.startsWith('7') || p.startsWith('1')) p = '254' + p;
+            setMpesaPhone(p);
+        }
     }, [user]);
 
     const totalWithShipping = totalPrice + (items.length > 0 && shippingMethod === 'ship' ? 199 : 0);

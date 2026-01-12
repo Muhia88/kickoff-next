@@ -51,38 +51,15 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
     const [mpesaProcessing, setMpesaProcessing] = useState(false);
     const [mpesaError, setMpesaError] = useState<string | null>(null);
 
+    // Prefill Phone
     useEffect(() => {
-        if (!eventId) return;
-
-        const fetchEvent = async () => {
-            setLoading(true);
-            try {
-                // Try fetching from edge function or DB
-                const { data, error } = await supabase
-                    .from('events')
-                    .select('*')
-                    .eq('id', eventId)
-                    .single();
-
-                if (error) throw error;
-                setEvent(data);
-            } catch (err: any) {
-                setError(err.message || 'Failed to fetch event');
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchEvent();
-    }, [eventId]);
-
-    const handleBuyTicket = () => {
-        if (!user) {
-            setShowAuthPrompt(true);
-            return;
+        if (user?.user_metadata?.phone) {
+            let p = user.user_metadata.phone.replace(/\D/g, '');
+            if (p.startsWith('0')) p = '254' + p.substring(1);
+            if (p.startsWith('7') || p.startsWith('1')) p = '254' + p;
+            setPhone(p);
         }
-        setShowCheckoutModal(true);
-    };
+    }, [user]);
 
     const handleMpesaPay = async () => {
         if (!phone) {
@@ -94,13 +71,34 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
         setMpesaError(null);
 
         try {
-            // 1. Initiate M-Pesa Payment via Edge Function
+            // 1. Create Order
+            const { data: orderData, error: orderError } = await supabase.functions.invoke('orders', {
+                body: {
+                    items: [{
+                        event_id: event?.id,
+                        quantity: 1, // Default 1
+                        type: 'packet' // Optional
+                    }],
+                    metadata: {
+                        is_ticket: true,
+                        event_name: event?.name
+                    },
+                    source: 'web_event_page'
+                }
+            });
+
+            if (orderError) throw orderError;
+            if (orderData.error) throw new Error(orderData.error);
+
+            const orderId = orderData.order_id;
+
+            // 2. Initiate M-Pesa Payment via Edge Function using Order ID
             const { data, error } = await supabase.functions.invoke('mpesa', {
                 body: {
                     action: 'initiate',
-                    event_id: event?.id, // Use event_id for ticket purchase
+                    order_id: orderId, // Use order_id
                     phone_number: phone,
-                    quantity: 1 // Default to 1 ticket for now
+                    amount: Number(event?.ticket_price || event?.price || 0)
                 }
             });
 
@@ -109,7 +107,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
 
             const paymentId = data.payment_id;
 
-            // 2. Poll for Success
+            // 3. Poll for Success
             let attempts = 0;
             const maxAttempts = 30; // 60 seconds
             const pollInterval = setInterval(async () => {
@@ -124,7 +122,6 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                     clearInterval(pollInterval);
                     setMpesaProcessing(false);
                     setShowCheckoutModal(false);
-                    // Redirect to My Tickets or show success
                     router.push('/my-tickets?success=true');
                 } else if (pData?.status === 'failed') {
                     clearInterval(pollInterval);
