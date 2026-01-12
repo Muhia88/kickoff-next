@@ -101,10 +101,7 @@ Deno.serve(async (req) => {
                     ticket_uid: uid,
                     purchased_at: new Date().toISOString(),
                     qr_object_path: qrPath,
-                    ticket_uid: uid,
-                    purchased_at: new Date().toISOString(),
-                    qr_object_path: qrPath,
-                    qr_code_url: qrUrl, // Persist friendly URL to DB
+                    qr_code_url: qrUrl,
                     is_used: false
                 };
 
@@ -129,88 +126,7 @@ Deno.serve(async (req) => {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' }
             });
         }
-        else if (action === 'create_order_qr') {
-            if (!order_id) {
-                return new Response(JSON.stringify({ error: 'Missing order_id' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-            }
-
-            console.log(`Generating QR for Order ${order_id}`);
-
-            // Fetch Order
-            const { data: order, error: orderError } = await supabaseAdmin
-                .from('orders')
-                .select('*')
-                .eq('id', order_id)
-                .single();
-
-            if (orderError || !order) throw new Error("Order not found");
-
-            // Skip if qr_image_url already set with friendly URL format
-            if (order.qr_image_url && order.qr_image_url.includes('/api/images/order/')) {
-                return new Response(JSON.stringify({ message: 'Order QR already exists', qr_image_url: order.qr_image_url }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-            }
-
-            try {
-                const qrUid = crypto.randomUUID();
-                const verifyUrl = `https://theearlykickoff.co.ke/verify-order/${order_id}`;
-
-                // Generate PNG Data URL
-                const dataUrl = await QRCode.toDataURL(verifyUrl, {
-                    type: 'image/png',
-                    width: 300,
-                    margin: 2
-                });
-
-                // Convert Base64 to Uint8Array
-                const base64Data = dataUrl.split(',')[1];
-                const binaryString = atob(base64Data);
-                const len = binaryString.length;
-                const bytes = new Uint8Array(len);
-                for (let k = 0; k < len; k++) bytes[k] = binaryString.charCodeAt(k);
-
-                const fileName = `orders/${order_id}/${qrUid}.png`;
-                const { error: uploadError } = await supabaseAdmin.storage
-                    .from('imageBank')
-                    .upload(fileName, bytes, { contentType: 'image/png', upsert: true });
-
-                if (!uploadError) {
-                    // Friendly URL
-                    const friendlyUrl = `https://theearlykickoff.co.ke/api/images/order/${order_id}`;
-
-                    // Parse metadata safely
-                    let currentMeta = order.metadata || {};
-                    if (typeof currentMeta === 'string') {
-                        try {
-                            currentMeta = JSON.parse(currentMeta);
-                        } catch (e) {
-                            console.error("Failed to parse metadata", e);
-                            currentMeta = {};
-                        }
-                    }
-
-                    // Update Order
-                    const { error: updateError } = await supabaseAdmin.from('orders')
-                        .update({
-                            metadata: {
-                                ...currentMeta,
-                                qr_object_path: `imageBank/${fileName}`
-                            },
-                            qr_image_url: friendlyUrl,
-                            qr_code: friendlyUrl
-                        })
-                        .eq('id', order_id);
-
-                    if (updateError) throw updateError;
-
-                    return new Response(JSON.stringify({ message: 'Order QR created', qr_image_url: friendlyUrl }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-                } else {
-                    throw uploadError;
-                }
-            } catch (err: any) {
-                console.error("Order QR Error", err);
-                return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-            }
-        }
+        // Note: Order QR generation is handled by the 'orders' edge function, not here
 
         return new Response(JSON.stringify({ error: 'Invalid action' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
