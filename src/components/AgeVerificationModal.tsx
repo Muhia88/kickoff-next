@@ -43,7 +43,7 @@ export default function AgeVerificationModal() {
                     <>
                         <h2 className="font-serif text-3xl font-bold text-gray-900 mb-4">Welcome</h2>
                         <p className="font-sans text-gray-600 mb-8 leading-relaxed">
-                            You must be of legal drinking age in your country to visit this site.
+                            You must be of legal drinking age to visit this site.
                             <br />
                             Please verify that you are 18 years of age or older.
                         </p>
