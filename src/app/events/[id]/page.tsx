@@ -126,7 +126,6 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                 attempts++;
                 const { data: pData } = await supabase
                     .from('payments')
-                    .from('payments')
                     .select('status, raw_payload')
                     .eq('id', paymentId)
                     .single();
