@@ -52,7 +52,7 @@ const Navbar = () => {
     const { cartCount, showCart, setShowCart } = UseCart();
     const router = useRouter();
 
-    const isVip = profile?.role === 'vip' || profile?.is_vip;
+    const isVip = profile?.role === 'vip' || profile?.is_vip || user?.user_metadata?.role === 'vip' || user?.user_metadata?.is_vip;
 
     const [isLiquorOpen, setIsLiquorOpen] = useState(false);
     const liquorRef = useRef<HTMLLIElement>(null);
