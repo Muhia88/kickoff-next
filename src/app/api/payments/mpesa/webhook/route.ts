@@ -151,7 +151,7 @@ export async function POST(req: NextRequest) {
                 }
 
                 // Update order with paid status and QR URL
-                await supabaseAdmin.from('orders').update({
+                const { error: updateError } = await supabaseAdmin.from('orders').update({
                     status: 'paid',
                     qr_image_url: friendlyUrl,
                     qr_code: friendlyUrl,
@@ -160,6 +160,18 @@ export async function POST(req: NextRequest) {
                         qr_object_path: `imageBank/${objectPath}`
                     }
                 }).eq('id', payment.order_id);
+
+                if (updateError) {
+                    console.error("Failed to update order with QR details:", updateError);
+                    console.error("Payload intended for update:", {
+                        status: 'paid',
+                        qr_image_url: friendlyUrl,
+                        qr_code: friendlyUrl,
+                        metadata_path: `imageBank/${objectPath}`
+                    });
+                } else {
+                    console.log(`Order ${payment.order_id} updated successfully with QR ${friendlyUrl}`);
+                }
             }
 
             return NextResponse.json({ message: "Payment processed successfully" });
