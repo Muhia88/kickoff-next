@@ -13,14 +13,14 @@ const Footer = () => {
                         <p className="text-gray-800 mb-4 text-sm font-medium">
                             Sign up to Early Kick-Off and get deals when they happen, exclusive offers, and be the first to know about new products and events.
                         </p>
-                        <div className="flex">
+                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-0">
                             <input
                                 type="email"
                                 placeholder="Enter your email"
-                                className="flex-1 px-4 py-2 border border-gray-400 bg-white text-gray-900 placeholder:text-gray-500 focus:outline-none focus:border-red-600"
+                                className="flex-1 w-full sm:w-auto px-4 py-2 border border-gray-400 bg-white text-gray-900 placeholder:text-gray-500 focus:outline-none focus:border-red-600"
                             />
-                            <button className="bg-gray-900 text-white px-6 py-2 hover:bg-gray-800 transition-colors">
-                                →
+                            <button className="w-full sm:w-auto bg-gray-900 text-white px-6 py-2 hover:bg-gray-800 transition-colors flex items-center justify-center">
+                                <span className="sm:hidden mr-2">Subscribe</span> →
                             </button>
                         </div>
                     </div>
