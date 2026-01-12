@@ -99,11 +99,7 @@ const Cart = () => {
                             {items.map((item) => (
                                 <li key={item.id} className="flex gap-4 p-4 bg-white rounded-xl shadow-sm border border-gray-100">
                                     <div className="w-20 h-20 bg-gray-50 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden border border-gray-100">
-                                        <ProductImage
-                                            path={item.image_url}
-                                            alt={item.name}
-                                            className="w-full h-full object-contain p-1"
-                                        />
+                                        <ProductImage path={item.image_url} alt={item.name} className="h-full w-full object-cover" productId={item.id} />
                                     </div>
                                     <div className="flex-1 flex flex-col justify-between">
                                         <div>

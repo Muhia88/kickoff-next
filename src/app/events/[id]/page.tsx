@@ -188,11 +188,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
                     <div>
                         <div>
-                            <ProductImage
-                                path={event.image || event.image_url || event.imageUrl}
-                                alt={event.name}
-                                className="w-full rounded-lg shadow-2xl object-cover aspect-[4/3] bg-gray-100"
-                            />
+                            <ProductImage path={event.image_url} alt={event.name} className="w-full rounded-lg shadow-2xl object-cover aspect-[4/3] bg-gray-100" eventId={event.id} />
                         </div>
                     </div>
                     <div className="space-y-6">

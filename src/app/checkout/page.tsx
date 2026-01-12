@@ -357,7 +357,7 @@ const Checkout = () => {
                                     <div key={item.id} className="flex justify-between items-center text-sm">
                                         <div className="flex items-center gap-3">
                                             <div className="w-12 h-12 bg-gray-100 rounded flex-shrink-0 flex items-center justify-center relative overflow-hidden">
-                                                <ProductImage path={item.image_url} alt={item.name} className="w-full h-full object-contain p-1" />
+                                                <ProductImage path={item.image_url} alt={item.name} className="h-full w-full object-cover" productId={item.id} />
                                             </div>
                                             <div>
                                                 <div className="font-medium text-gray-900 line-clamp-1 w-32">{item.name}</div>

@@ -9,14 +9,11 @@ interface ProductImageProps {
     path: string | null | undefined;
     alt: string;
     className?: string;
-    fill?: boolean; // Support next/image fill prop if we were using it, but here we use standard img for now to match admin simple logic, OR we can try to use Next Image if desired.
-    // For now, sticking to standard <img> for consistency with admin fix, unless optimization dictates otherwise.
-    // Actually, kickoff-next uses Next Image in some places. 
-    // BUT, standard <img> is safer for dynamic signed URLs to avoid Next.js Image Optimization caching issues with signed params?
-    // Let's use standard <img> for now, as it worked for admin.
+    productId?: number; // Optional for friendly URLs
+    eventId?: number;   // Optional for friendly event URLs
 }
 
-export default function ProductImage({ path, alt, className }: ProductImageProps) {
+export default function ProductImage({ path, alt, className, productId, eventId }: ProductImageProps) {
     const [imgSrc, setImgSrc] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [hasError, setHasError] = useState(false);
@@ -27,13 +24,27 @@ export default function ProductImage({ path, alt, className }: ProductImageProps
         setIsLoading(true);
         setImgSrc(null);
 
+        // Priority 1: Friendly URL via Product ID
+        if (productId) {
+            setImgSrc(`/api/images/product/${productId}`);
+            // We let the img tag's onLoad/onError handle loading state for the proxy url
+            return;
+        }
+
+        // Priority 2: Friendly URL via Event ID
+        if (eventId) {
+            setImgSrc(`/api/images/event/${eventId}`);
+            return;
+        }
+
+        // If no ID, fall back to path logic
         if (!path) {
             setHasError(true);
             setIsLoading(false);
             return;
         }
 
-        // Simple proxy logic: 
+        // Simple proxy logic for path:
         // If http/data, use as is.
         // Else, append to /api/images/
         if (path.startsWith('http') || path.startsWith('data:')) {
@@ -46,7 +57,7 @@ export default function ProductImage({ path, alt, className }: ProductImageProps
         const cleanPath = path.replace(/^\/+/, '');
         setImgSrc(`/api/images/${cleanPath}`);
         // We let the img tag's onLoad/onError handle loading state for the proxy url
-    }, [path]);
+    }, [path, productId, eventId]);
 
     return (
         <div className={`relative ${className} overflow-hidden`}>

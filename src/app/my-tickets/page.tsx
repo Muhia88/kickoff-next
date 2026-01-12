@@ -100,11 +100,7 @@ function MyTicketsContent() {
                         {tickets.map(ticket => (
                             <div key={ticket.id} className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden flex flex-col">
                                 <div className="h-48 relative bg-gray-200">
-                                    <ProductImage
-                                        path={ticket.event?.image || ticket.event?.image_url}
-                                        alt={ticket.event?.name}
-                                        className="w-full h-full object-cover"
-                                    />
+                                    <ProductImage path={ticket.event?.image || ticket.event?.image_url} alt={ticket.event?.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" eventId={ticket.event_id} />
                                 </div>
                                 <div className="p-6 flex-1 flex flex-col">
                                     <h3 className="text-xl font-bold text-gray-900 mb-2 line-clamp-1">{ticket.event?.name}</h3>

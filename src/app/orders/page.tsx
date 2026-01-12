@@ -133,7 +133,7 @@ const OrderCard = ({ order, address, onOpenQr }: any) => {
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 bg-gray-100 rounded flex-shrink-0 flex items-center justify-center overflow-hidden">
                                         {it.product?.image_url ? (
-                                            <ProductImage path={it.product.image_url} alt={it.product.name} className="w-full h-full object-cover" />
+                                            <ProductImage path={it.product?.image_url} alt={it.product?.name} className="w-full h-full object-contain p-1" productId={it.product_id || it.product?.id} />
                                         ) : (
                                             <Package size={16} className="text-gray-400" />
                                         )}

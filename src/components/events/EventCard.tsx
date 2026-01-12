@@ -51,11 +51,7 @@ const EventCard = ({ event }: { event: Event }) => {
             <Link href={`/events/${event.id}`} className="flex flex-col flex-grow">
                 <div className="relative">
                     <div className="w-full h-56 bg-gray-100 flex items-center justify-center overflow-hidden relative">
-                        <ProductImage
-                            path={event.image || event.image_url || event.imageUrl}
-                            alt={event.name || 'Event'}
-                            className="w-full h-full object-cover"
-                        />
+                        <ProductImage path={event.image_url} alt={event.name} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" eventId={event.id} />
                     </div>
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
                     <div className="absolute bottom-0 left-0 p-4">

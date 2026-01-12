@@ -117,9 +117,10 @@ const ProductCard = ({ product, loading = false }: { product?: Product, loading?
 
                 <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden mb-4 relative">
                     <ProductImage
-                        path={product.image_url || product.image || ''}
-                        alt={productName}
-                        className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
+                        path={product.image_url}
+                        alt={product.name}
+                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        productId={product.id}
                     />
                 </div>
 

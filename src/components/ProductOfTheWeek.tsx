@@ -86,11 +86,7 @@ const ProductOfTheWeek = () => {
                         <div className="bg-white rounded-lg p-8">
                             <div className="relative w-full h-96 max-w-sm mx-auto">
                                 <div className="relative w-full h-96 max-w-sm mx-auto">
-                                    <ProductImage
-                                        path={product.image_url || product.image}
-                                        alt={product.name || product.product_names?.name}
-                                        className="object-contain w-full h-full"
-                                    />
+                                    <ProductImage path={product.image_url} alt={product.name} className="h-full w-full object-cover" productId={product.id} />
                                 </div>
                             </div>
                         </div>

@@ -110,11 +110,7 @@ const ProductPage = ({ params }: { params: Promise<{ id: string }> }) => {
                         {/* Image */}
                         <div className="flex flex-col items-center">
                             <div className="w-full bg-white rounded-lg shadow-sm overflow-hidden flex items-center justify-center aspect-square border border-gray-200 relative">
-                                <ProductImage
-                                    path={product.image || product.image_url}
-                                    alt={product.name || product.product_names?.name}
-                                    className="w-full h-full object-contain p-4"
-                                />
+                                <ProductImage path={product.image_url} alt={product.name || 'Product'} className="object-cover w-full h-full" productId={product.id} />
                                 {/* Sale Badge */}
                                 {product.sale && (
                                     <div className="absolute top-4 left-4 bg-red-600 text-white px-3 py-1 text-sm font-bold rounded">SALE</div>
