@@ -7,6 +7,7 @@ import Cart from "@/components/Cart";
 import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
 import { WishlistProvider } from "@/context/WishlistContext";
+import AgeVerificationModal from "@/components/AgeVerificationModal";
 
 const poppins = Poppins({
   variable: "--font-poppins",
@@ -37,6 +38,7 @@ export default function RootLayout({
         <AuthProvider>
           <CartProvider>
             <WishlistProvider>
+              <AgeVerificationModal />
               <Navbar />
               <Cart />
               <main className="flex-grow">
