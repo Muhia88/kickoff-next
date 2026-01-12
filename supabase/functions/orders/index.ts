@@ -283,16 +283,31 @@ serve(async (req) => {
                     // Friendly URL
                     const friendlyUrl = `https://theearlykickoff.co.ke/api/images/order/${order.id}`;
 
-                    await supabaseAdmin.from('orders')
+                    // Parse current metadata safely
+                    let currentMeta = order.metadata || {};
+                    if (typeof currentMeta === 'string') {
+                        try {
+                            currentMeta = JSON.parse(currentMeta);
+                        } catch (e) {
+                            console.error("Failed to parse metadata", e);
+                            currentMeta = {}; // Fallback
+                        }
+                    }
+
+                    const { error: updateError } = await supabaseAdmin.from('orders')
                         .update({
                             qr_image_url: friendlyUrl,
                             qr_code: friendlyUrl,
                             metadata: {
-                                ...(order.metadata || {}),
+                                ...currentMeta,
                                 qr_object_path: `imageBank/${fileName}`
                             }
                         })
                         .eq('id', order.id);
+
+                    if (updateError) {
+                        console.error("Failed to update order with QR", updateError);
+                    }
                 } else {
                     console.error("Order QR Upload Error", uploadError);
                 }
