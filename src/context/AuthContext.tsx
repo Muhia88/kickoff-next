@@ -42,16 +42,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             } else {
                 console.log("Profile not found in public.users, attempting to create...");
                 // Auto-create profile from auth metadata
+                const now = new Date().toISOString();
+                const meta = currentUser.user_metadata || {};
+
                 const { data: newData, error: createError } = await supabase
                     .from('users')
                     .insert([
                         {
                             supabase_id: currentUser.id,
                             email: currentUser.email,
-                            full_name: currentUser.user_metadata?.full_name || '',
-                            phone: currentUser.user_metadata?.phone || '',
-                            role: 'customer', // default role
-                            username: currentUser.email?.split('@')[0]
+                            username: meta.username || currentUser.email?.split('@')[0],
+                            full_name: meta.full_name || meta.name || 'User',
+                            phone: meta.phone || null,
+                            role: 'user', // Requested default
+                            status: 'pending',
+                            created_at: now,
+                            updated_at: now,
+                            is_email_confirmed: !!currentUser.email_confirmed_at,
+                            is_phone_confirmed: !!currentUser.phone_confirmed_at,
+                            avatar_url: meta.avatar_url || meta.picture || null,
+                            metadata: meta,
+                            address: meta.address || null
                         }
                     ])
                     .select()
