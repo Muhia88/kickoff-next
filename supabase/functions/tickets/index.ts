@@ -58,21 +58,33 @@ Deno.serve(async (req) => {
 
                 try {
                     const verifyUrl = `https://theearlykickoff.co.ke/api/tickets/verify/${uid}`;
-                    // Use SVG to avoid Canvas dependencies
-                    const svgString = await QRCode.toString(verifyUrl, { type: 'svg' });
 
-                    const fileName = `tickets/${event_id}/${uid}.svg`;
+                    // Generate PNG Data URL
+                    const dataUrl = await QRCode.toDataURL(verifyUrl, {
+                        type: 'image/png',
+                        width: 300,
+                        margin: 2
+                    });
+
+                    // Convert Base64 to Uint8Array
+                    const base64Data = dataUrl.split(',')[1];
+                    const binaryString = atob(base64Data);
+                    const len = binaryString.length;
+                    const bytes = new Uint8Array(len);
+                    for (let i = 0; i < len; i++) {
+                        bytes[i] = binaryString.charCodeAt(i);
+                    }
+
+                    const fileName = `tickets/${event_id}/${uid}.png`;
 
                     const { error: uploadError } = await supabaseAdmin.storage
                         .from('imageBank')
-                        .upload(fileName, svgString, { contentType: 'image/svg+xml', upsert: true });
+                        .upload(fileName, bytes, { contentType: 'image/png', upsert: true });
 
                     if (!uploadError) {
                         qrPath = `imageBank/${fileName}`;
-                        const { data: signedData } = await supabaseAdmin.storage
-                            .from('imageBank')
-                            .createSignedUrl(fileName, 31536000); // 1 year
-                        if (signedData) qrUrl = signedData.signedUrl;
+                        // Friendly URL format: /api/images/ticket/<event_id>/<uid>
+                        qrUrl = `https://theearlykickoff.co.ke/api/images/ticket/${event_id}/${uid}`;
                     } else {
                         console.error("QR Upload Error", uploadError);
                         // We continue even if QR upload fails, ticket is created without QR (better than no ticket)
@@ -93,6 +105,7 @@ Deno.serve(async (req) => {
                 };
 
                 itemsToInsert.push(ticket);
+                // For client response, ensure we send the friendly URL
                 tickets.push({ ...ticket, qr_code_url: qrUrl });
             }
 

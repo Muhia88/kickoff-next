@@ -313,13 +313,13 @@ export default function MyOrders() {
                                 <h3 className="text-xl font-bold text-gray-900 mb-2">Order QR Code</h3>
                                 <p className="text-sm text-gray-500 mb-6">Scan this code to verify your order</p>
 
-                                <div className="bg-gray-50 p-4 rounded-lg border-2 border-dashed border-gray-200 inline-block mb-4">
+                                <div className="bg-white p-4 rounded-lg border-2 border-dashed border-gray-200 inline-block mb-4">
                                     {/* USE ProductImage for secure loading */}
-                                    {/* Determine path: prefer metadata.qr_object_path, else qr_image_url */}
+                                    {/* Determine path: prefer qr_image_url (friendly), else metadata.qr_object_path */}
                                     <ProductImage
                                         path={
-                                            (selectedOrder.metadata && selectedOrder.metadata.qr_object_path)
-                                            || selectedOrder.qr_image_url
+                                            selectedOrder.qr_image_url
+                                            || (selectedOrder.metadata && selectedOrder.metadata.qr_object_path)
                                         }
                                         alt="Order QR"
                                         className="w-48 h-48"

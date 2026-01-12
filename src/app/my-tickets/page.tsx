@@ -152,7 +152,7 @@ function MyTicketsContent() {
 
                         <div className="bg-white p-4 rounded-lg border-2 border-dashed border-gray-200 inline-block mb-4">
                             <ProductImage
-                                path={selectedTicket.qr_object_path || `imageBank/tickets/${selectedTicket.event_id}/${selectedTicket.ticket_uid}.png`}
+                                path={selectedTicket.qr_code_url || selectedTicket.qr_object_path || `imageBank/tickets/${selectedTicket.event_id}/${selectedTicket.ticket_uid}.png`}
                                 alt="Ticket QR"
                                 className="w-48 h-48"
                             />

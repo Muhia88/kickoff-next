@@ -247,50 +247,54 @@ serve(async (req) => {
                 }
             }
 
-            // Generate Order QR (SVG)
+            // Generate Order QR (PNG)
             try {
-                // Use order_uuid if available, else random
+                // Use order_uuid if available, else random. Actually order_uuid exists on order model but we just inserted it.
+                // The insert returns 'order', let's check if it has uuid. Typically UUID is gen by default.
+                // We'll use order.id for simplicity in file path, but check if we want a UUID for the filename.
+                // Revert to using a random UID for the file to avoid guessing, but path should be predictable?
+                // Actually the plan said friendly URL: /api/images/order/[id]. 
+                // The proxy will need to look up the path. So path doesn't strictly need to be friendly, but clean.
+
                 const qrUid = crypto.randomUUID();
                 const verifyUrl = `https://theearlykickoff.co.ke/verify-order/${order.id}`;
-                // Use SVG to avoid Canvas issues
-                const svgString = await QRCode.toString(verifyUrl, { type: 'svg' });
-                const fileName = `orders/${order.id}/${qrUid}.svg`;
+
+                // Generate PNG Data URL
+                const dataUrl = await QRCode.toDataURL(verifyUrl, {
+                    type: 'image/png',
+                    width: 300,
+                    margin: 2
+                });
+
+                // Convert Base64 to Uint8Array
+                const base64Data = dataUrl.split(',')[1];
+                const binaryString = atob(base64Data);
+                const len = binaryString.length;
+                const bytes = new Uint8Array(len);
+                for (let k = 0; k < len; k++) bytes[k] = binaryString.charCodeAt(k);
+
+                const fileName = `orders/${order.id}/${qrUid}.png`;
 
                 const { error: uploadError } = await supabaseAdmin.storage
                     .from('imageBank')
-                    .upload(fileName, svgString, { contentType: 'image/svg+xml', upsert: true });
+                    .upload(fileName, bytes, { contentType: 'image/png', upsert: true });
 
                 if (!uploadError) {
+                    // Friendly URL
+                    const friendlyUrl = `https://theearlykickoff.co.ke/api/images/order/${order.id}`;
+
                     await supabaseAdmin.from('orders')
                         .update({
-                            qr_image_url: `imageBank/${fileName}`,
-                            qr_code: `imageBank/${fileName}`
+                            qr_image_url: friendlyUrl,
+                            qr_code: friendlyUrl,
+                            metadata: {
+                                ...(order.metadata || {}),
+                                qr_object_path: `imageBank/${fileName}`
+                            }
                         })
                         .eq('id', order.id);
-                }
-            } catch (e) {
-                console.error("Order QR Gen Error", e);
-            }
-
-            // Generate Order QR (SVG)
-            try {
-                const qrUid = crypto.randomUUID();
-                // Match tickets service content format
-                const qrContent = JSON.stringify({ order_id: order.id, uid: qrUid });
-                const svgString = await QRCode.toString(qrContent, { type: 'svg' });
-                const fileName = `orders/${order.id}/${qrUid}.svg`;
-
-                const { error: uploadError } = await supabaseAdmin.storage
-                    .from('imageBank')
-                    .upload(fileName, svgString, { contentType: 'image/svg+xml', upsert: true });
-
-                if (!uploadError) {
-                    await supabaseAdmin.from('orders')
-                        .update({
-                            qr_image_url: `imageBank/${fileName}`,
-                            qr_code: `imageBank/${fileName}`
-                        })
-                        .eq('id', order.id);
+                } else {
+                    console.error("Order QR Upload Error", uploadError);
                 }
             } catch (e) {
                 console.error("Order QR Gen Error", e);
