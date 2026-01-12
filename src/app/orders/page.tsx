@@ -320,7 +320,6 @@ export default function MyOrders() {
                                         path={
                                             (selectedOrder.metadata && selectedOrder.metadata.qr_object_path)
                                             || selectedOrder.qr_image_url
-                                            || `imageBank/orders/${selectedOrder.id}.png` // Fallback guessing
                                         }
                                         alt="Order QR"
                                         className="w-48 h-48"

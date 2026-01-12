@@ -152,6 +152,7 @@ Deno.serve(async (req) => {
                     const { error: updateError } = await supabaseAdmin.from('orders')
                         .update({
                             metadata: newMeta,
+                            qr_image_url: `imageBank/${fileName}`,
                             qr_code: `imageBank/${fileName}`
                         })
                         .eq('id', order_id);
